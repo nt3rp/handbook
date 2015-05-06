@@ -1,33 +1,86 @@
-var gulp = require("gulp");
+var gulp = require('gulp'),
+    sourcemaps = require('gulp-sourcemaps'),
+    streamify = require('gulp-streamify'),
+    uglify = require('gulp-uglify'),
+    connect = require('gulp-connect'),
+    del = require('del'),
+    browserify = require('browserify'),
+    source = require('vinyl-source-stream'),
+    buffer = require('vinyl-buffer'),
+    config;
+// TODO: Use gulp-plugins?
 
-gulp.task("html", function () {
+config = {
+    'js': {
+        'main': ['./src/js/app.js'],
+        'src': ['./src/**/*.js'],
+        'dest': 'build/js',
+    },
+    'html': {
+        'src': ['./src/**/*.html'],
+        'dest': 'build'
+    },
+    'css': {
+        'src': ['./src/css/**/*.css'],
+        'dest': 'build/css'
+    },
+    'img': {
+        'src': ['src/img/**/*'],
+        'dest': 'build/img'
+    }
+};
+
+gulp.task('js', ['clean'], function () {
+    return browserify(config.js.main, {debug: true})
+        .bundle()
+        .pipe(source('app.min.js'))
+        .pipe(buffer())
+        .pipe(sourcemaps.init({loadMaps: true, debug: true}))
+            .pipe(streamify(uglify()))
+        .pipe(sourcemaps.write('../source'))
+        .pipe(gulp.dest(config.js.dest));
 });
 
-gulp.task("js", function () {
+// TODO: What was the name of the gulp-plugin to create generic tasks?
+gulp.task('html', ['clean'], function () {
+    return gulp.src(config.html.src)
+        .pipe(gulp.dest(config.html.dest))
 });
 
-gulp.task("bower", function () {
+gulp.task('css', ['clean'], function () {
+    return gulp.src(config.css.src)
+        .pipe(gulp.dest(config.css.dest))
 });
 
-gulp.task("css", function () {
+gulp.task('img', ['clean'], function () {
+    return gulp.src(config.img.src)
+        .pipe(gulp.dest(config.img.dest))
 });
 
-gulp.task('img', function () {
+gulp.task('clean', function (next) {
+    del(['build'], next);
 });
 
-gulp.task("build", ["bower", "html", "js", "css", "img"]);
+gulp.task('build', ['html', 'js', 'css', 'img']);
 
-gulp.task("server", function () {
+gulp.task('server', function (next) {
+    connect.server({
+        root: 'build',
+        livereload: true
+    });
+
+    return next;
 });
 
-gulp.task("watch", function () {
-    //gulp.watch(config.bower.src, ["bower"]);
-    //gulp.watch(config.html.src, ["html"]);
-    //gulp.watch(config.js.src, ["js"]);
-    //gulp.watch(config.css.src, ["css"]);
-    //gulp.watch(config.img.src, ["img"]);
+// TODO: Incremental builds
+// OR only run clean on certain parts? Maybe only run clean on build?
+gulp.task('watch', function () {
+    gulp.watch(config.html.src, ['build']);
+    gulp.watch(config.js.src, ['build']);
+    gulp.watch(config.css.src, ['build']);
+    gulp.watch(config.img.src, ['build']);
 });
 
-gulp.task("prod", ["build", "server"]);
+gulp.task('prod', ['build', 'server']);
 
-gulp.task("default", ["build", "watch", "server"]);
+gulp.task('default', ['build', 'watch', 'server']);
